@@ -1,0 +1,24 @@
+name: Setup Godot
+description: Downloads Godot binaries and export templates
+inputs:
+  godot-version:
+    description: Godot version to use (default '4.4.1')
+    required: true
+    default: '4.4.1'
+  godot-release: 
+    description: Godot release to use (default 'stable')
+    required: true
+    default: stable
+
+runs:
+  using: composite
+  steps:
+    - uses: jdx/mise-action@v4
+      with:
+        install: true
+        cache: true
+
+    - name: Reimport project assets
+      shell: bash
+      run: |
+        godot --headless --import

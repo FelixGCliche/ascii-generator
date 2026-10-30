@@ -1,0 +1,7 @@
+pre-commit:
+  piped: true
+  jobs:
+    - name: format
+      run: gdformat ./
+    - name: lint
+      run: gdlint ./
