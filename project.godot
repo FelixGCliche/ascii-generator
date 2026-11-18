@@ -11,4 +11,5 @@ config_version=5
 [application]
 
 config/name="ascii-generator"
+run/main_scene="uid://b7vagdl4ld5sx"
 config/features=PackedStringArray("4.7")

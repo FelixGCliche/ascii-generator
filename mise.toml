@@ -1,3 +1,5 @@
 [tools]
 godot = "4.7"
 lefthook = "latest"
+uv = "latest"
+"pipx:gdtoolkit" = "4"

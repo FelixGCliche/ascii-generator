@@ -1,22 +1,48 @@
 name: Setup Godot
-description: Downloads Godot binaries and export templates
-inputs:
+description: Installs Godot (version pinned in mise.toml) and matching export templates
+outputs:
   godot-version:
-    description: Godot version to use (default '4.4.1')
-    required: true
-    default: '4.4.1'
-  godot-release: 
-    description: Godot release to use (default 'stable')
-    required: true
-    default: stable
+    description: Resolved Godot version (e.g. '4.7.2-stable')
+    value: ${{ steps.version.outputs.version }}
 
 runs:
   using: composite
   steps:
-    - uses: jdx/mise-action@v4
+    - name: Setup Mise
+      uses: jdx/mise-action@v4
       with:
         install: true
         cache: true
+
+    - name: Resolve Godot version
+      id: version
+      shell: bash
+      run: |
+        VERSION=$(mise current godot)   # e.g. 4.7.2-stable
+        echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+        echo "templates-dir=${HOME}/.local/share/godot/export_templates/${VERSION/-/.}" >> "$GITHUB_OUTPUT"
+        echo "Using Godot ${VERSION}"
+
+    - name: Cache export templates
+      id: cache-templates
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.version.outputs.templates-dir }}
+        key: godot-export-templates-${{ steps.version.outputs.version }}
+
+    - name: Install export templates
+      if: steps.cache-templates.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+        TEMPLATES_DIR: ${{ steps.version.outputs.templates-dir }}
+      run: |
+        TMP=$(mktemp -d)
+        curl -fsSL "https://github.com/godotengine/godot/releases/download/${VERSION}/Godot_v${VERSION}_export_templates.tpz" -o "${TMP}/templates.tpz"
+        unzip -q "${TMP}/templates.tpz" -d "${TMP}"
+        mkdir -p "${TEMPLATES_DIR}"
+        mv "${TMP}"/templates/* "${TEMPLATES_DIR}/"
+        rm -rf "${TMP}"
 
     - name: Reimport project assets
       shell: bash
