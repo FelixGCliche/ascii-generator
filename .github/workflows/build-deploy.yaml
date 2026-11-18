@@ -21,19 +21,19 @@ jobs:
         with:
           fetch-depth: 0
           lfs: true
-          
       - name: Setup Mise
         uses: jdx/mise-action@v4
         with:
           install: true
           cache: true
       
-      - name: Run GdLint
-        run: gdlint ./
-      
-      - name: Run GdFormat
-        run: gdformat ./ -s 2 -d
-        continue-on-error: true
+      - parallel:
+          - name: Run GdLint
+            run: gdlint ./
+          
+          - name: Run GdFormat
+            run: gdformat ./ -s 2 -d
+            continue-on-error: true
 
   test:
     name: Test
