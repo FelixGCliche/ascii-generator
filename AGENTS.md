@@ -49,6 +49,15 @@ adjusted without touching the others.
   layers don't reach into each other's internals.
 - Follow the class-definition order and naming rules in `.gdlintrc`.
 
+## Version Control
+
+- Commit messages and PR titles must follow [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/): `type(scope): subject`
+- Always include a scope — never omit it
+- Keep commit messages short and concise (a single subject line; avoid bodies unless truly necessary)
+- Branch names must follow [Conventional Branch v1.1.0](https://conventionalbranch.org/): `<type>/<description>`
+- Never add a description/body to a PR — title only
+- Never add a `Co-Authored-By` trailer (or any AI-attribution trailer) to a commit
+
 ## Responses
 
 - Keep responses concise and to the point unless the user asks otherwise.
