@@ -26,8 +26,10 @@ adjusted without touching the others.
 
 - `project.godot`: project config. `export_presets.cfg` holds the export presets (`win64`, `html5`).
 - `src/`: all game code and scenes (`src/scenes/main.tscn` is the main scene).
+- `plug.gd` + `addons/gd-plug/`: plugin manager (gd-plug); other plugins (e.g. GUT) are installed by it and git-ignored.
+- `*.test.gd` files in `src/`, next to the code they test: GUT tests. `.gutconfig.json` holds the GUT settings.
 - `.github/actions/setup-godot`: installs Godot through mise, plus the matching export templates.
-- `.github/workflows/build-deploy.yaml`: on PRs to `main`, runs lint → export → deploy to Pages.
+- `.github/workflows/build-deploy.yaml`: on PRs to `main`, runs lint → test (GUT) → export → deploy to Pages.
 
 ## Tooling
 
@@ -36,6 +38,8 @@ adjusted without touching the others.
 - Lint: `gdlint ./` (rules in `.gdlintrc`)
 - Format: `gdformat ./` (check only: `gdformat ./ -d`)
 - Reimport assets (headless): `godot --headless --import`
+- Install plugins (gd-plug): `godot --headless -s plug.gd install`
+- Run tests (GUT): `godot --headless -s addons/gut/gut_cmdln.gd -gexit`
 - Export locally: `godot --headless --export-release html5 build/index.html`
 
 ## Working in this repo
@@ -77,3 +81,15 @@ adjusted without touching the others.
 - Use the best model for the task: premium models for complex tasks (like coding) and mid-tier models for simpler tasks, like documentation.
 - After completing features (large or small), always run `gdlint ./` and `gdformat ./ -d`, and
   confirm the project imports cleanly with `godot --headless --import`.
+
+## Testing
+
+- Tests use [GUT](https://gut.readthedocs.io/), installed by gd-plug (`godot --headless -s plug.gd install`).
+  Run them with `godot --headless -s addons/gut/gut_cmdln.gd -gexit`; config is in `.gutconfig.json`.
+- Tests live in the feature folder, next to the code they cover (`src/layers/layer.gd` → `src/layers/layer.test.gd`),
+  and are discovered recursively under `src/`. There is no separate `test/` folder.
+  Test files are named `*.test.gd`, extend `GutTest`, and test functions are named `test_*`.
+- Add tests with every feature or fix. Test logic that can run headless (params, data, chaining, parsing);
+  headless runs don't render, so shader output is checked manually with solo preview.
+- Never assume your changes simply work, always test. Run the GUT command after changes, and again before opening a PR.
+- If GUT can't be used for a change, ask the user whether testing should be skipped.

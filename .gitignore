@@ -24,3 +24,8 @@ build/
 *.exe
 # Uncomment if your project does not version PCK files as runtime dependencies.
 # *.pck
+
+# Plugins are installed by gd-plug, so they are ignored
+.plugged/
+addons/*
+!addons/gd-plug/
