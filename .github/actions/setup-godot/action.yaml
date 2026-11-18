@@ -44,6 +44,12 @@ runs:
         mv "${TMP}"/templates/* "${TEMPLATES_DIR}/"
         rm -rf "${TMP}"
 
+    - name: Run gd-plug
+      shell: bash
+      run: |
+        godot --headless --import   # registers gd-plug's classes on a fresh checkout
+        godot --headless -s plug.gd install
+
     - name: Reimport project assets
       shell: bash
       run: |

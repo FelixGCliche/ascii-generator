@@ -26,6 +26,7 @@ adjusted without touching the others.
 
 - `project.godot`: project config. `export_presets.cfg` holds the export presets (`win64`, `html5`).
 - `src/`: all game code and scenes (`src/scenes/main.tscn` is the main scene).
+- `plug.gd` + `addons/gd-plug/`: plugin manager (gd-plug); other plugins (e.g. GUT) are installed by it and git-ignored; `test/`: GUT tests mirroring `src/`.
 - `.github/actions/setup-godot`: installs Godot through mise, plus the matching export templates.
 - `.github/workflows/build-deploy.yaml`: on PRs to `main`, runs lint → export → deploy to Pages.
 
@@ -36,6 +37,8 @@ adjusted without touching the others.
 - Lint: `gdlint ./` (rules in `.gdlintrc`)
 - Format: `gdformat ./` (check only: `gdformat ./ -d`)
 - Reimport assets (headless): `godot --headless --import`
+- Install plugins (gd-plug): `godot --headless -s plug.gd install`
+- Run tests (GUT): `godot --headless -s addons/gut/gut_cmdln.gd -gexit`
 - Export locally: `godot --headless --export-release html5 build/index.html`
 
 ## Working in this repo
