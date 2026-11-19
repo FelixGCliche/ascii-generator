@@ -186,3 +186,36 @@ func test_clearing_solo_resizes_hidden_layers() -> void:
 	assert_eq(layers[0].size, Vector2i(50, 10))
 	_stack.clear_solo()
 	assert_eq(layers[2].size, Vector2i(50, 10))
+
+
+func test_flush_skips_freed_queued_layer() -> void:
+	var layers := _three()
+	_stack._flush_pending()
+	layers[0].request_update()
+	layers[1].request_update()
+	layers[1].free()
+	watch_signals(_stack)
+	_stack._flush_pending()
+	assert_signal_emitted(_stack, "updates_flushed")
+	var flushed: Array = get_signal_parameters(_stack, "updates_flushed")[0]
+	assert_eq(flushed, [layers[2]])
+
+
+func test_foreign_layer_is_not_active() -> void:
+	_three()
+	for i in 4:
+		_stack._flush_pending()
+	var foreign := Layer.new()
+	assert_false(_stack._is_active(foreign))
+	_stack._queue(foreign)
+	watch_signals(_stack)
+	_stack._flush_pending()
+	assert_signal_not_emitted(_stack, "updates_flushed")
+	foreign.free()
+
+
+func test_removed_layer_is_not_active() -> void:
+	var layers := _three()
+	_stack.remove_layer(layers[1])
+	assert_false(_stack._is_active(layers[1]))
+	layers[1].free()

@@ -133,8 +133,11 @@ func _flush_pending() -> void:
 	var queued := _pending.keys()
 	_pending.clear()
 	var flushed: Array[Layer] = []
-	for layer: Layer in queued:
-		if is_instance_valid(layer) and _layers.has(layer) and _is_active(layer):
+	for entry: Variant in queued:
+		if not is_instance_valid(entry):
+			continue
+		var layer: Layer = entry
+		if _is_active(layer):
 			layer.request_update()
 			flushed.append(layer)
 	if not flushed.is_empty():
@@ -156,7 +159,8 @@ func _active_boundary() -> int:
 
 
 func _is_active(layer: Layer) -> bool:
-	return _layers.find(layer) <= _active_boundary()
+	var index := _layers.find(layer)
+	return index >= 0 and index <= _active_boundary()
 
 
 func _on_upstream_changed(downstream: Layer) -> void:
