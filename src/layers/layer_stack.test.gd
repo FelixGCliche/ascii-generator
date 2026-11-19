@@ -87,8 +87,8 @@ func test_move_rechains() -> void:
 	assert_eq(b.input_tex, src)
 	assert_eq(a.input_tex, b.get_output())
 	assert_eq(_stack.get_final_texture(), a.get_output())
-	assert_false(a.output_changed.is_connected(b.refresh_size))
-	assert_true(b.output_changed.is_connected(a.refresh_size))
+	assert_eq(a.output_changed.get_connections().size(), 0)
+	assert_eq(b.output_changed.get_connections().size(), 1)
 
 
 func test_solo_select_and_clear() -> void:
@@ -139,11 +139,15 @@ func test_upstream_output_changed_refreshes_downstream() -> void:
 	var b := Layer.new()
 	_stack.add_layer(a)
 	_stack.add_layer(b)
+	_stack._flush_pending()
 	b.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	a.request_update()
+	assert_eq(b.render_target_update_mode, SubViewport.UPDATE_DISABLED)
+	_stack._flush_pending()
 	assert_eq(b.render_target_update_mode, SubViewport.UPDATE_ONCE)
 	b.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	a.enabled = false
+	_stack._flush_pending()
 	assert_eq(b.render_target_update_mode, SubViewport.UPDATE_ONCE)
 
 

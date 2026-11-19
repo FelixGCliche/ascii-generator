@@ -176,7 +176,7 @@ func test_refresh_size_and_changed_signal() -> void:
 	_layer.refresh_size()
 	assert_eq(_layer.size, Vector2i(20, 30))
 	_layer.input_tex = null
-	assert_false(tex.changed.is_connected(_layer.refresh_size))
+	assert_eq(tex.changed.get_connections().size(), 0)
 
 
 func test_updates_once_and_retriggers() -> void:
@@ -187,7 +187,7 @@ func test_updates_once_and_retriggers() -> void:
 		"shader": func() -> void: _layer.shader = null,
 		"input": func() -> void: _layer.input_tex = SizedTexture.new(),
 		"params": func() -> void: _layer.params = [],
-		"refresh": func() -> void: _layer.refresh_size(),
+		"sync": func() -> void: _layer.sync_params(),
 		"request": func() -> void: _layer.request_update(),
 	}
 	for key in triggers:

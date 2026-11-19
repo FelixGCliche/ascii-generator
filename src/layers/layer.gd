@@ -27,10 +27,14 @@ const INPUT_UNIFORM := &"input_tex"
 			return
 		shader = value
 		_apply_shader()
+## Tunable parameters. Each [LayerParam]'s [signal Resource.changed] re-syncs the layer, so
+## editing a param in place is picked up. Godot arrays have no change signal: after appending
+## or erasing entries in place, reassign [member params] or call [method sync_params].
 @export var params: Array[LayerParam] = []:
 	set(value):
 		params = value
-		_sync_params()
+		_watch_params()
+		sync_params()
 @export var enabled := true:
 	set(value):
 		if value == enabled:
@@ -42,17 +46,18 @@ var input_tex: Texture2D:
 	set(value):
 		if value == input_tex:
 			return
-		if input_tex:
-			input_tex.changed.disconnect(refresh_size)
+		_disconnect_input_tex()
 		input_tex = value
 		_material.set_shader_parameter(INPUT_UNIFORM, value)
 		if value:
-			value.changed.connect(refresh_size)
+			value.changed.connect(_on_input_tex_changed)
 		refresh_size()
+		request_update()
 
 var _material := ShaderMaterial.new()
 var _values := {}
 var _rect := ColorRect.new()
+var _watched_params: Array[LayerParam] = []
 
 
 func _init() -> void:
@@ -104,14 +109,39 @@ func request_update() -> void:
 	output_changed.emit()
 
 
-## Re-reads the size of [member input_tex] and resizes the viewport to match.
+## Re-reads the size of [member input_tex] and resizes the viewport to match. Only requests
+## a re-render when the size actually changed.
 ## Zero-size textures are ignored (the previous size is kept). Safe to call at any time.
 func refresh_size() -> void:
-	if input_tex:
-		var tex_size := Vector2i(input_tex.get_size())
-		if tex_size.x > 0 and tex_size.y > 0 and tex_size != size:
-			size = tex_size
+	if not input_tex:
+		return
+	var tex_size := Vector2i(input_tex.get_size())
+	if tex_size.x > 0 and tex_size.y > 0 and tex_size != size:
+		size = tex_size
+		request_update()
+
+
+## Re-reads [member params]: fills in missing values, clamps existing ones and pushes
+## everything to the shader. Call after mutating [member params] in place.
+func sync_params() -> void:
+	var synced := {}
+	for param in params:
+		if not param:
+			continue
+		var value: Variant = _values.get(param.name, param.default_value)
+		synced[param.name] = param.clamp_value(value)
+		_material.set_shader_parameter(param.name, synced[param.name])
+	for old_name in _values:
+		if not synced.has(old_name):
+			_material.set_shader_parameter(old_name, null)
+	var changed_values := {}
+	for param_name in synced:
+		if _values.has(param_name) and not is_same(_values[param_name], synced[param_name]):
+			changed_values[param_name] = synced[param_name]
+	_values = synced
 	request_update()
+	for param_name in changed_values:
+		param_changed.emit(param_name, changed_values[param_name])
 
 
 func get_output() -> Texture2D:
@@ -132,27 +162,25 @@ func _require_param(param_name: StringName) -> LayerParam:
 	return null
 
 
-## Initialises params missing a value to their default and pushes every value to the shader.
-## Uniforms of params that were dropped are cleared.
-func _sync_params() -> void:
-	var synced := {}
+func _watch_params() -> void:
+	for old in _watched_params:
+		if old.changed.is_connected(sync_params):
+			old.changed.disconnect(sync_params)
+	_watched_params.clear()
 	for param in params:
-		if not param:
-			continue
-		var value: Variant = _values.get(param.name, param.default_value)
-		synced[param.name] = param.clamp_value(value)
-		_material.set_shader_parameter(param.name, synced[param.name])
-	for old_name in _values:
-		if not synced.has(old_name):
-			_material.set_shader_parameter(old_name, null)
-	var changed_values := {}
-	for param_name in synced:
-		if _values.has(param_name) and not is_same(_values[param_name], synced[param_name]):
-			changed_values[param_name] = synced[param_name]
-	_values = synced
+		if param and not _watched_params.has(param):
+			param.changed.connect(sync_params)
+			_watched_params.append(param)
+
+
+func _disconnect_input_tex() -> void:
+	if is_instance_valid(input_tex) and input_tex.changed.is_connected(_on_input_tex_changed):
+		input_tex.changed.disconnect(_on_input_tex_changed)
+
+
+func _on_input_tex_changed() -> void:
+	refresh_size()
 	request_update()
-	for param_name in changed_values:
-		param_changed.emit(param_name, changed_values[param_name])
 
 
 func _apply_shader() -> void:
