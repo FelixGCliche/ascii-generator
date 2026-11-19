@@ -7,6 +7,8 @@ extends Resource
 
 enum Type { FLOAT, INT, BOOL, COLOR, ENUM }
 
+const STEP_EPSILON := 0.000001
+
 ## Shader uniform name.
 @export var name: StringName
 @export var type: Type = Type.FLOAT
@@ -30,19 +32,18 @@ enum Type { FLOAT, INT, BOOL, COLOR, ENUM }
 func clamp_value(value: Variant) -> Variant:
 	if value == null:
 		value = default_value if default_value != null else _type_default()
-	var result: Variant = value
 	match type:
 		Type.FLOAT:
-			result = _clamp_float(float(value))
+			return _clamp_float(float(value))
 		Type.INT:
-			result = _clamp_int(int(value))
+			return _clamp_int(int(value))
 		Type.BOOL:
-			result = bool(value)
+			return bool(value)
 		Type.COLOR:
-			result = _to_color(value)
+			return _to_color(value)
 		Type.ENUM:
-			result = clampi(int(value), 0, maxi(options.size() - 1, 0))
-	return result
+			return clampi(int(value), 0, maxi(options.size() - 1, 0))
+	return value
 
 
 func get_display_label() -> String:
@@ -67,7 +68,7 @@ func _clamp_float(value: float) -> float:
 	if step > 0.0:
 		f = lo + snappedf(f - lo, step)
 		if f > hi:
-			f = lo + floorf((hi - lo) / step + 0.000001) * step
+			f = lo + floorf((hi - lo) / step + STEP_EPSILON) * step
 		f = clampf(f, lo, hi)
 	return f
 
@@ -88,6 +89,7 @@ func _clamp_int(value: int) -> int:
 func _to_color(value: Variant) -> Color:
 	if value is Color:
 		return value
-	if (value is String or value is StringName) and String(value).is_valid_html_color():
-		return Color.html(String(value))
-	return default_value if default_value is Color else Color.WHITE
+	var fallback: Color = default_value if default_value is Color else Color.WHITE
+	if value is String or value is StringName:
+		return Color.from_string(String(value), fallback)
+	return fallback

@@ -106,20 +106,35 @@ func test_reset_all_restores_defaults() -> void:
 	assert_eq(_uniform(&"tint"), Color.RED)
 
 
-func test_enabled_swaps_material() -> void:
-	assert_eq(_layer.get_active_material(), _layer.get_layer_material())
+func test_enabled_swaps_shader() -> void:
+	var own_shader := _layer.shader
+	assert_eq(_layer.get_layer_material().shader, own_shader)
 	_layer.enabled = false
-	assert_eq(_layer.get_active_material(), _layer.get_passthrough_material())
-	assert_eq(_layer.get_passthrough_material().shader, Layer.PASSTHROUGH_SHADER)
+	assert_eq(_layer.get_layer_material().shader, Layer.PASSTHROUGH_SHADER)
 	_layer.enabled = true
-	assert_eq(_layer.get_active_material(), _layer.get_layer_material())
+	assert_eq(_layer.get_layer_material().shader, own_shader)
+
+
+func test_values_persist_across_shader_swaps() -> void:
+	var tex := ImageTexture.create_from_image(Image.create(4, 4, false, Image.FORMAT_RGBA8))
+	_layer.input_tex = tex
+	_layer.set_param(&"strength", 0.9)
+	_layer.enabled = false
+	assert_eq(_layer.get_layer_material().get_shader_parameter(&"input_tex"), tex)
+	_layer.enabled = true
+	assert_eq(_layer.get_layer_material().get_shader_parameter(&"input_tex"), tex)
+	assert_almost_eq(_uniform(&"strength"), 0.9, 0.0001)
+	var own_shader := _layer.shader
+	_layer.shader = null
+	_layer.shader = own_shader
+	assert_eq(_layer.get_layer_material().get_shader_parameter(&"input_tex"), tex)
+	assert_almost_eq(_uniform(&"strength"), 0.9, 0.0001)
 
 
 func test_input_tex_propagates_and_resizes() -> void:
 	var tex := ImageTexture.create_from_image(Image.create(64, 32, false, Image.FORMAT_RGBA8))
 	_layer.input_tex = tex
 	assert_eq(_layer.get_layer_material().get_shader_parameter(&"input_tex"), tex)
-	assert_eq(_layer.get_passthrough_material().get_shader_parameter(&"input_tex"), tex)
 	assert_eq(_layer.size, Vector2i(64, 32))
 
 
@@ -129,7 +144,7 @@ func test_works_outside_scene_tree() -> void:
 	layer.set_param(&"strength", 0.75)
 	assert_almost_eq(layer.get_param(&"strength"), 0.75, 0.0001)
 	layer.enabled = false
-	assert_eq(layer.get_active_material(), layer.get_passthrough_material())
+	assert_eq(layer.get_layer_material().shader, Layer.PASSTHROUGH_SHADER)
 	layer.free()
 
 
@@ -210,6 +225,16 @@ func test_reset_all_emits_only_changed() -> void:
 
 func test_null_shader_falls_back_to_passthrough() -> void:
 	_layer.shader = null
-	assert_null(_layer.get_layer_material().shader)
-	assert_eq(_layer.get_active_material(), _layer.get_passthrough_material())
-	assert_not_null(_layer.get_layer_material())
+	assert_eq(_layer.get_layer_material().shader, Layer.PASSTHROUGH_SHADER)
+
+
+func test_scene_assigned_params_apply_without_ready() -> void:
+	var source := Layer.new()
+	source.params = [_param(&"strength", LayerParam.Type.FLOAT, 0.25)]
+	var scene := PackedScene.new()
+	scene.pack(source)
+	source.free()
+	var layer: Layer = scene.instantiate()
+	assert_almost_eq(layer.get_param(&"strength"), 0.25, 0.0001)
+	assert_almost_eq(layer.get_layer_material().get_shader_parameter(&"strength"), 0.25, 0.0001)
+	layer.free()

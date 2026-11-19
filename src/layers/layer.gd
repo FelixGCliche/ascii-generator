@@ -21,50 +21,47 @@ const INPUT_UNIFORM := &"input_tex"
 
 @export var shader: Shader:
 	set(value):
+		if value == shader:
+			return
 		shader = value
-		_material.shader = value
-		_update_active_material()
-		request_update()
+		_apply_shader()
 @export var params: Array[LayerParam] = []:
 	set(value):
 		params = value
 		_sync_params()
 @export var enabled := true:
 	set(value):
+		if value == enabled:
+			return
 		enabled = value
-		_update_active_material()
-		request_update()
+		_apply_shader()
 
 var input_tex: Texture2D:
 	set(value):
-		if input_tex and input_tex.changed.is_connected(refresh_size):
+		if value == input_tex:
+			return
+		if input_tex:
 			input_tex.changed.disconnect(refresh_size)
 		input_tex = value
 		_material.set_shader_parameter(INPUT_UNIFORM, value)
-		_passthrough_material.set_shader_parameter(INPUT_UNIFORM, value)
-		if value and not value.changed.is_connected(refresh_size):
+		if value:
 			value.changed.connect(refresh_size)
 		refresh_size()
 
 var _material := ShaderMaterial.new()
-var _passthrough_material := ShaderMaterial.new()
 var _values := {}
 var _rect := ColorRect.new()
 
 
 func _init() -> void:
-	_passthrough_material.shader = PASSTHROUGH_SHADER
 	render_target_update_mode = SubViewport.UPDATE_ONCE
 	transparent_bg = true
 	disable_3d = true
 	_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_rect, false, Node.INTERNAL_MODE_FRONT)
-	_update_active_material()
-
-
-func _ready() -> void:
-	_sync_params()
+	_rect.material = _material
+	_apply_shader()
 
 
 func set_param(param_name: StringName, value: Variant) -> void:
@@ -72,10 +69,8 @@ func set_param(param_name: StringName, value: Variant) -> void:
 	if not param:
 		return
 	var clamped: Variant = param.clamp_value(value)
-	if _values.has(param_name):
-		var old: Variant = _values[param_name]
-		if typeof(old) == typeof(clamped) and old == clamped:
-			return
+	if _values.has(param_name) and is_same(_values[param_name], clamped):
+		return
 	_values[param_name] = clamped
 	_material.set_shader_parameter(param_name, clamped)
 	request_update()
@@ -120,33 +115,18 @@ func get_output() -> Texture2D:
 	return get_texture()
 
 
-## The material currently drawing the layer (own shader or passthrough).
-func get_active_material() -> ShaderMaterial:
-	return _rect.material
-
-
-## The layer's own material. Always the same instance; its shader is null when [member shader]
-## is null, in which case the active material is the passthrough one.
+## The layer's single material. Its shader is [member shader], or the passthrough shader when
+## the layer is disabled or has no shader.
 func get_layer_material() -> ShaderMaterial:
 	return _material
 
 
-func get_passthrough_material() -> ShaderMaterial:
-	return _passthrough_material
-
-
-func _find_param(param_name: StringName) -> LayerParam:
+func _require_param(param_name: StringName) -> LayerParam:
 	for param in params:
 		if param and param.name == param_name:
 			return param
+	push_warning("Layer '%s': unknown param '%s'" % [name, param_name])
 	return null
-
-
-func _require_param(param_name: StringName) -> LayerParam:
-	var param := _find_param(param_name)
-	if not param:
-		push_warning("Layer '%s': unknown param '%s'" % [name, param_name])
-	return param
 
 
 ## Initialises params missing a value to their default and pushes every value to the shader.
@@ -166,5 +146,6 @@ func _sync_params() -> void:
 	request_update()
 
 
-func _update_active_material() -> void:
-	_rect.material = _material if enabled and shader else _passthrough_material
+func _apply_shader() -> void:
+	_material.shader = shader if (enabled and shader) else PASSTHROUGH_SHADER
+	request_update()
