@@ -16,6 +16,11 @@ inputs:
     description: Export directory (holds index.html, index.wasm, ...).
     default: build-html5
 
+outputs:
+  url:
+    description: URL of this deployment.
+    value: ${{ steps.deploy.outputs.url }}
+
 runs:
   using: composite
   steps:
@@ -48,6 +53,7 @@ runs:
           exit 1
         fi
     - name: Deploy
+      id: deploy
       shell: bash
       env:
         CLOUDFLARE_API_TOKEN: ${{ inputs.api-token }}
@@ -55,4 +61,8 @@ runs:
         DIR: ${{ inputs.directory }}
         PROJECT: ${{ inputs.project }}
         BRANCH: ${{ inputs.branch }}
-      run: wrangler pages deploy "$DIR" --project-name "$PROJECT" --branch "$BRANCH" --commit-hash "$GITHUB_SHA"
+      run: |
+        set -euo pipefail
+        wrangler pages deploy "$DIR" --project-name "$PROJECT" --branch "$BRANCH" --commit-hash "$GITHUB_SHA" | tee deploy.log
+        url=$(grep -oE 'https://[a-z0-9.-]+\.pages\.dev' deploy.log | head -n 1)
+        echo "url=${url}" >> "$GITHUB_OUTPUT"

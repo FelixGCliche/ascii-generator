@@ -79,6 +79,9 @@ jobs:
     needs: export
     if: github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -88,8 +91,26 @@ jobs:
           name: build-html5
           path: build-html5
       - name: Deploy preview
+        id: preview
         uses: ./.github/actions/deploy-cloudflare
         with:
           branch: ${{ github.head_ref }}
           api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Comment preview URL on PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          URL: ${{ steps.preview.outputs.url }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          marker='<!-- preview-deployment -->'
+          printf '%s\n**Preview deployment:** %s\n\nCommit: `%s`\n' "$marker" "$URL" "${SHA:0:7}" > comment.md
+          id=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" --paginate \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"${marker}\"))) | .id" | head -n 1)
+          if [ -n "$id" ]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${id}" -F body=@comment.md
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" -F body=@comment.md
+          fi
