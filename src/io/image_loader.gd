@@ -72,17 +72,20 @@ func _open_web_picker() -> void:
 			input.type = 'file';
 			input.accept = 'image/*';
 			input.style.display = 'none';
+			// The input must stay in the DOM until the user picks or cancels: Safari and
+			// Firefox drop `change` events on detached inputs.
 			input.onchange = function () {
 				var file = input.files[0];
+				input.remove();
 				if (!file) { return; }
 				var reader = new FileReader();
 				reader.onload = function () { window.asciiOnFile(file.name, String(reader.result)); };
 				reader.onerror = function () { window.asciiOnFile(file.name, ''); };
 				reader.readAsDataURL(file);
 			};
+			input.oncancel = function () { input.remove(); };
 			document.body.appendChild(input);
 			input.click();
-			input.remove();
 		})();
 	"""
 		)

@@ -5,31 +5,30 @@ extends RefCounted
 ## Default longest side, kept under common WebGL2 texture size limits.
 const MAX_DIMENSION := 4096
 
+# Valid BITMAPCOREHEADER / INFOHEADER / V2-V5 header sizes.
+const _BMP_DIB_SIZES: Array[int] = [12, 40, 52, 56, 108, 124]
 
-## Decodes [param bytes]. The format is detected from magic bytes first, then from the
-## extension of [param filename]. Returns null (with a warning) on failure.
+
+## Decodes [param bytes]. The format is detected from magic bytes first; if that decoder
+## fails (or nothing matched), the extension of [param filename] is tried. Returns null
+## (with a warning) on failure.
 static func decode(bytes: PackedByteArray, filename := "") -> Image:
 	if bytes.is_empty():
 		push_warning("ImageDecoder: no image data")
 		return null
-	var format := _detect_magic(bytes)
-	if format.is_empty():
-		format = filename.get_extension().to_lower()
-	var image := Image.new()
-	var err := ERR_FILE_UNRECOGNIZED
-	match format:
-		"png":
-			err = image.load_png_from_buffer(bytes)
-		"jpg", "jpeg":
-			err = image.load_jpg_from_buffer(bytes)
-		"webp":
-			err = image.load_webp_from_buffer(bytes)
-		"bmp":
-			err = image.load_bmp_from_buffer(bytes)
-	if err != OK or image.is_empty():
-		push_warning("ImageDecoder: could not decode image (format '%s')" % format)
-		return null
-	return image
+	var formats: Array[String] = []
+	var magic := _detect_magic(bytes)
+	if not magic.is_empty():
+		formats.append(magic)
+	var extension := _normalize_format(filename.get_extension().to_lower())
+	if not extension.is_empty() and not formats.has(extension):
+		formats.append(extension)
+	for format in formats:
+		var image := _decode_as(bytes, format)
+		if image != null:
+			return image
+	push_warning("ImageDecoder: could not decode image (tried %s)" % str(formats))
+	return null
 
 
 ## Wraps [param image] in an [ImageTexture]; null-safe.
@@ -40,7 +39,8 @@ static func to_texture(image: Image) -> ImageTexture:
 
 
 ## Returns [param image] scaled down proportionally so its longest side is at most
-## [param max_dim]. Never upscales; returns the same image when it already fits.
+## [param max_dim]. Never upscales. Mutates: resizes [param image] in place and returns that
+## same [Image] (also when it already fits and is left untouched).
 static func limit_size(image: Image, max_dim := MAX_DIMENSION) -> Image:
 	if image == null or image.is_empty() or max_dim < 1:
 		return image
@@ -50,9 +50,29 @@ static func limit_size(image: Image, max_dim := MAX_DIMENSION) -> Image:
 	var scale := float(max_dim) / float(longest)
 	var w := maxi(1, roundi(image.get_width() * scale))
 	var h := maxi(1, roundi(image.get_height() * scale))
-	var result: Image = image.duplicate()
-	result.resize(w, h, Image.INTERPOLATE_LANCZOS)
-	return result
+	image.resize(w, h, Image.INTERPOLATE_LANCZOS)
+	return image
+
+
+static func _normalize_format(extension: String) -> String:
+	return "jpg" if extension == "jpeg" else extension
+
+
+static func _decode_as(bytes: PackedByteArray, format: String) -> Image:
+	var image := Image.new()
+	var err := ERR_FILE_UNRECOGNIZED
+	match format:
+		"png":
+			err = image.load_png_from_buffer(bytes)
+		"jpg":
+			err = image.load_jpg_from_buffer(bytes)
+		"webp":
+			err = image.load_webp_from_buffer(bytes)
+		"bmp":
+			err = image.load_bmp_from_buffer(bytes)
+	if err != OK or image.is_empty():
+		return null
+	return image
 
 
 static func _detect_magic(bytes: PackedByteArray) -> String:
@@ -66,6 +86,8 @@ static func _detect_magic(bytes: PackedByteArray) -> String:
 	if bytes.size() >= 12 and bytes.slice(0, 4) == "RIFF".to_ascii_buffer():
 		if bytes.slice(8, 12) == "WEBP".to_ascii_buffer():
 			return "webp"
-	if bytes.size() >= 2 and bytes[0] == 0x42 and bytes[1] == 0x4D:
-		return "bmp"
+	# "BM" alone is too weak: also require a known DIB header size at offset 14.
+	if bytes.size() >= 18 and bytes[0] == 0x42 and bytes[1] == 0x4D:
+		if bytes.decode_u32(14) in _BMP_DIB_SIZES:
+			return "bmp"
 	return ""

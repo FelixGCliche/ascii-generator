@@ -39,3 +39,9 @@ layout_mode = 0
 offset_right = 8.0
 offset_bottom = 8.0
 text = "Open image"
+
+[node name="StatusLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 100.0
+offset_right = 140.0
+offset_bottom = 23.0
