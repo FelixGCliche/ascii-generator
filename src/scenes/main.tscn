@@ -3,8 +3,9 @@
 [ext_resource type="Script" path="res://src/layers/layer_stack.gd" id="1_stack"]
 [ext_resource type="Script" path="res://src/scenes/main.gd" id="2_main"]
 [ext_resource type="Script" path="res://src/io/image_loader.gd" id="3_loader"]
+[ext_resource type="Script" path="res://src/ui/layer_panel.gd" id="4_panel"]
 
-[node name="Control" type="Control" unique_id=2052571555]
+[node name="Control" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -13,35 +14,47 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("2_main")
 
-[node name="Label" type="Label" parent="." unique_id=1268642143]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -20.0
-offset_top = -11.5
-offset_right = 20.0
-offset_bottom = 11.5
-grow_horizontal = 2
-grow_vertical = 2
-text = "ASCII Generator"
-
 [node name="LayerStack" type="Node" parent="."]
 script = ExtResource("1_stack")
 
 [node name="ImageLoader" type="Node" parent="."]
 script = ExtResource("3_loader")
 
-[node name="OpenButton" type="Button" parent="."]
-layout_mode = 0
-offset_right = 8.0
-offset_bottom = 8.0
+[node name="Layout" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Sidebar" type="VBoxContainer" parent="Layout"]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+
+[node name="Top" type="HBoxContainer" parent="Layout/Sidebar"]
+layout_mode = 2
+
+[node name="OpenButton" type="Button" parent="Layout/Sidebar/Top"]
+unique_name_in_owner = true
+layout_mode = 2
 text = "Open image"
 
-[node name="StatusLabel" type="Label" parent="."]
-layout_mode = 0
-offset_left = 100.0
-offset_right = 140.0
-offset_bottom = 23.0
+[node name="StatusLabel" type="Label" parent="Layout/Sidebar/Top"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 3
+
+[node name="LayerPanel" type="ScrollContainer" parent="Layout/Sidebar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("4_panel")
+
+[node name="Preview" type="TextureRect" parent="Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+expand_mode = 1
+stretch_mode = 5
