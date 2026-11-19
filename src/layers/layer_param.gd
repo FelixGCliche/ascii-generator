@@ -62,34 +62,35 @@ func _type_default() -> Variant:
 
 
 func _clamp_float(value: float) -> float:
-	var lo := minf(min_value, max_value)
-	var hi := maxf(min_value, max_value)
-	var f := clampf(value, lo, hi)
+	var lower_bound := minf(min_value, max_value)
+	var upper_bound := maxf(min_value, max_value)
+	var clamped := clampf(value, lower_bound, upper_bound)
 	if step > 0.0:
-		f = lo + snappedf(f - lo, step)
-		if f > hi:
-			f = lo + floorf((hi - lo) / step + STEP_EPSILON) * step
-		f = clampf(f, lo, hi)
-	return f
+		clamped = lower_bound + snappedf(clamped - lower_bound, step)
+		if clamped > upper_bound:
+			var step_count := floorf((upper_bound - lower_bound) / step + STEP_EPSILON)
+			clamped = lower_bound + step_count * step
+		clamped = clampf(clamped, lower_bound, upper_bound)
+	return clamped
 
 
 func _clamp_int(value: int) -> int:
-	var lo := ceili(minf(min_value, max_value))
-	var hi := floori(maxf(min_value, max_value))
-	var i := clampi(value, lo, hi)
+	var lower_bound := ceili(minf(min_value, max_value))
+	var upper_bound := floori(maxf(min_value, max_value))
+	var clamped := clampi(value, lower_bound, upper_bound)
 	var int_step := int(step)
 	if int_step > 1:
-		i = lo + roundi(float(i - lo) / int_step) * int_step
-		if i > hi:
-			i = lo + ((hi - lo) / int_step) * int_step
-		i = clampi(i, lo, hi)
-	return i
+		clamped = lower_bound + roundi(float(clamped - lower_bound) / int_step) * int_step
+		if clamped > upper_bound:
+			clamped = lower_bound + ((upper_bound - lower_bound) / int_step) * int_step
+		clamped = clampi(clamped, lower_bound, upper_bound)
+	return clamped
 
 
 func _to_color(value: Variant) -> Color:
 	if value is Color:
 		return value
-	var fallback: Color = default_value if default_value is Color else Color.WHITE
+	var default_color: Color = default_value if default_value is Color else Color.WHITE
 	if value is String or value is StringName:
-		return Color.from_string(String(value), fallback)
-	return fallback
+		return Color.from_string(String(value), default_color)
+	return default_color
