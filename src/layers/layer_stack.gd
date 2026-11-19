@@ -29,12 +29,9 @@ var _solo: Variant
 var _wired: Array[Array] = []
 var _last_final: Texture2D
 var _pending := {}
-var _stack_exiting := false
 
 
 func _init() -> void:
-	tree_exiting.connect(func() -> void: _stack_exiting = true)
-	tree_entered.connect(func() -> void: _stack_exiting = false)
 	RenderingServer.frame_post_draw.connect(_on_frame_post_draw)
 
 
