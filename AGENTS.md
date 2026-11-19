@@ -31,12 +31,11 @@ adjusted without touching the others.
 - `plug.gd` + `addons/gd-plug/`: plugin manager (gd-plug); other plugins (e.g. GUT) are installed by it and git-ignored.
 - `*.test.gd` files in `src/`, next to the code they test: GUT tests. `.gutconfig.json` holds the GUT settings.
 - `.github/actions/setup-godot`: installs Godot through mise, plus the matching export templates.
-- `.github/actions/build-web-template`: builds a slimmed web export template from Godot source (cached) and
-  installs it over the stock one, so `index.wasm` stays under Cloudflare's 25 MiB file limit. Its SCons args
-  live in `tools/web-template/scons.args` (2D-only profile); a 3D project edits that file, or deletes it to
-  use the stock template.
-- `.github/workflows/build-deploy.yaml`: on PRs to `main`, runs lint → test (GUT) → export → deploy a Cloudflare Pages preview
-  (config in `wrangler.jsonc`, headers in `deploy/_headers`). Production is built by Cloudflare on push to `main`.
+- `.github/workflows/build-deploy.yaml`: on PRs to `main`, runs lint → test (GUT) → export → deploy a Cloudflare Pages preview.
+- `.github/workflows/deploy-prod.yaml`: on push to `main`, exports and deploys production to Cloudflare Pages.
+- `.github/actions/deploy-cloudflare`: brotli-compresses `index.wasm` in place (the raw file exceeds Cloudflare's
+  25 MiB limit), then runs `wrangler pages deploy`. `deploy/_headers` marks `/index.wasm` as `Content-Encoding: br`;
+  config in `wrangler.jsonc`. Needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets.
 
 ## Tooling
 

@@ -1,0 +1,36 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Export and deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Setup Godot
+        uses: ./.github/actions/setup-godot
+      - name: Export Godot project
+        run: |
+          mkdir -vp build-html5
+          godot --headless --export-release html5 build-html5/index.html
+      - name: Deploy
+        uses: ./.github/actions/deploy-cloudflare
+        with:
+          branch: main
+          api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
