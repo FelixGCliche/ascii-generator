@@ -5,8 +5,8 @@ extends RefCounted
 ## Default longest side, kept under common WebGL2 texture size limits.
 const MAX_DIMENSION := 4096
 
-# Valid BITMAPCOREHEADER / INFOHEADER / V2-V5 header sizes.
-const _BMP_DIB_SIZES: Array[int] = [12, 40, 52, 56, 108, 124]
+# Valid BITMAPCOREHEADER / OS2 v2 / INFOHEADER / V2-V5 header sizes.
+const _BMP_DIB_SIZES: Array[int] = [12, 40, 52, 56, 64, 108, 124]
 
 
 ## Decodes [param bytes]. The format is detected from magic bytes first; if that decoder

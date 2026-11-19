@@ -126,3 +126,22 @@ func test_to_texture_size() -> void:
 
 func test_to_texture_null_safe() -> void:
 	assert_null(ImageDecoder.to_texture(null))
+
+
+func test_bmp_with_os2_dib_size_decodes_via_magic() -> void:
+	var bytes := _bmp(64)
+	bytes.resize(82)
+	bytes.encode_u32(2, 82)
+	bytes.encode_u32(10, 78)
+	bytes[78] = 0
+	bytes[79] = 0
+	bytes[80] = 255
+	assert_eq(ImageDecoder._detect_magic(bytes), "bmp")
+	var image := ImageDecoder.decode(bytes, "x.txt")
+	assert_not_null(image)
+	assert_eq(image.get_size(), Vector2i(1, 1))
+
+
+func test_short_bmp_header_is_not_probed_out_of_range() -> void:
+	var bytes := PackedByteArray([0x42, 0x4D, 0, 0])
+	assert_eq(ImageDecoder._detect_magic(bytes), "")
