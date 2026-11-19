@@ -15,6 +15,8 @@ extends SubViewport
 ## passthrough shader instead, so its output equals its input.
 
 signal param_changed(param_name: StringName, value: Variant)
+## Emitted whenever the output may have changed (every [method request_update]).
+signal output_changed
 
 const PASSTHROUGH_SHADER := preload("res://src/shaders/passthrough.gdshader")
 const INPUT_UNIFORM := &"input_tex"
@@ -99,6 +101,7 @@ func reset_all() -> void:
 ## Schedules one re-render of the viewport.
 func request_update() -> void:
 	render_target_update_mode = SubViewport.UPDATE_ONCE
+	output_changed.emit()
 
 
 ## Re-reads the size of [member input_tex] and resizes the viewport to match.

@@ -228,6 +228,14 @@ func test_null_shader_falls_back_to_passthrough() -> void:
 	assert_eq(_layer.get_layer_material().shader, Layer.PASSTHROUGH_SHADER)
 
 
+func test_request_update_emits_output_changed() -> void:
+	watch_signals(_layer)
+	_layer.request_update()
+	assert_signal_emit_count(_layer, "output_changed", 1)
+	_layer.set_param(&"strength", 0.9)
+	assert_signal_emit_count(_layer, "output_changed", 2)
+
+
 func test_scene_assigned_params_apply_without_ready() -> void:
 	var source := Layer.new()
 	source.params = [_param(&"strength", LayerParam.Type.FLOAT, 0.25)]
