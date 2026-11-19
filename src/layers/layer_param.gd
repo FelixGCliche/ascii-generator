@@ -34,9 +34,9 @@ func clamp_value(value: Variant) -> Variant:
 		value = default_value if default_value != null else _type_default()
 	match type:
 		Type.FLOAT:
-			return _clamp_float(float(value))
+			return _clamp_float(_finite_float(value))
 		Type.INT:
-			return _clamp_int(int(value))
+			return _clamp_int(roundi(value) if value is float else int(value))
 		Type.BOOL:
 			return bool(value)
 		Type.COLOR:
@@ -48,6 +48,16 @@ func clamp_value(value: Variant) -> Variant:
 
 func get_display_label() -> String:
 	return label if not label.is_empty() else String(name)
+
+
+## Converts [param value] to a finite float; NaN/INF warn and fall back to the default.
+func _finite_float(value: Variant) -> float:
+	var number := float(value)
+	if is_finite(number):
+		return number
+	push_warning("LayerParam '%s': non-finite float value" % name)
+	var fallback := float(default_value) if default_value is int or default_value is float else 0.0
+	return fallback if is_finite(fallback) else 0.0
 
 
 func _type_default() -> Variant:

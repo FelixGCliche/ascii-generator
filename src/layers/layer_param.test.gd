@@ -86,3 +86,20 @@ func test_step_never_exceeds_max_and_stays_on_grid() -> void:
 	param = _make(LayerParam.Type.INT, 0.0, 10.0, 4.0)
 	assert_eq(param.clamp_value(10), 8)
 	assert_eq(param.clamp_value(7), 8)
+
+
+func test_float_rejects_non_finite() -> void:
+	var param := _make(LayerParam.Type.FLOAT, 0.0, 10.0)
+	param.default_value = 3.0
+	assert_almost_eq(param.clamp_value(NAN), 3.0, 0.0001)
+	assert_almost_eq(param.clamp_value(INF), 3.0, 0.0001)
+	assert_almost_eq(param.clamp_value(-INF), 3.0, 0.0001)
+	param.default_value = null
+	assert_almost_eq(param.clamp_value(NAN), 0.0, 0.0001)
+
+
+func test_int_rounds_floats() -> void:
+	var param := _make(LayerParam.Type.INT, 0.0, 10.0)
+	assert_eq(param.clamp_value(2.6), 3)
+	assert_eq(param.clamp_value(2.4), 2)
+	assert_eq(param.clamp_value(-0.6), 0)

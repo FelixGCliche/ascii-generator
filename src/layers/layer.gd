@@ -142,8 +142,14 @@ func _sync_params() -> void:
 	for old_name in _values:
 		if not synced.has(old_name):
 			_material.set_shader_parameter(old_name, null)
+	var changed_values := {}
+	for param_name in synced:
+		if _values.has(param_name) and not is_same(_values[param_name], synced[param_name]):
+			changed_values[param_name] = synced[param_name]
 	_values = synced
 	request_update()
+	for param_name in changed_values:
+		param_changed.emit(param_name, changed_values[param_name])
 
 
 func _apply_shader() -> void:
