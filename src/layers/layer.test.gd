@@ -12,6 +12,19 @@ void fragment() {
 }
 """
 
+
+class SizedTexture:
+	extends Texture2D
+	var w := 8
+	var h := 8
+
+	func _get_width() -> int:
+		return w
+
+	func _get_height() -> int:
+		return h
+
+
 var _layer: Layer
 
 
@@ -122,3 +135,81 @@ func test_works_outside_scene_tree() -> void:
 
 func test_get_output_is_viewport_texture() -> void:
 	assert_eq(_layer.get_output(), _layer.get_texture())
+
+
+func test_zero_size_texture_keeps_previous_size() -> void:
+	_layer.input_tex = ImageTexture.create_from_image(
+		Image.create(64, 32, false, Image.FORMAT_RGBA8)
+	)
+	_layer.input_tex = ImageTexture.new()
+	assert_eq(_layer.size, Vector2i(64, 32))
+	_layer.input_tex = null
+	assert_eq(_layer.size, Vector2i(64, 32))
+
+
+func test_refresh_size_and_changed_signal() -> void:
+	var tex := SizedTexture.new()
+	_layer.input_tex = tex
+	assert_eq(_layer.size, Vector2i(8, 8))
+	tex.w = 20
+	_layer.refresh_size()
+	assert_eq(_layer.size, Vector2i(20, 8))
+	tex.h = 30
+	tex.emit_changed()
+	assert_eq(_layer.size, Vector2i(20, 30))
+	tex.w = 0
+	_layer.refresh_size()
+	assert_eq(_layer.size, Vector2i(20, 30))
+	_layer.input_tex = null
+	assert_false(tex.changed.is_connected(_layer.refresh_size))
+
+
+func test_updates_once_and_retriggers() -> void:
+	assert_eq(_layer.render_target_update_mode, SubViewport.UPDATE_ONCE)
+	var triggers := {
+		"param": func() -> void: _layer.set_param(&"strength", 0.9),
+		"enabled": func() -> void: _layer.enabled = false,
+		"shader": func() -> void: _layer.shader = null,
+		"input": func() -> void: _layer.input_tex = SizedTexture.new(),
+		"params": func() -> void: _layer.params = [],
+		"refresh": func() -> void: _layer.refresh_size(),
+		"request": func() -> void: _layer.request_update(),
+	}
+	for key in triggers:
+		_layer.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		triggers[key].call()
+		assert_eq(_layer.render_target_update_mode, SubViewport.UPDATE_ONCE, key)
+
+
+func test_dropped_params_clear_uniforms() -> void:
+	_layer.params = [_param(&"strength", LayerParam.Type.FLOAT, 0.5)]
+	assert_null(_uniform(&"mode"))
+	assert_null(_uniform(&"tint"))
+	assert_almost_eq(_uniform(&"strength"), 0.5, 0.0001)
+
+
+func test_set_param_emits_only_on_change() -> void:
+	watch_signals(_layer)
+	_layer.set_param(&"strength", 0.5)
+	assert_signal_not_emitted(_layer, "param_changed")
+	_layer.set_param(&"strength", 0.6)
+	assert_signal_emit_count(_layer, "param_changed", 1)
+	_layer.set_param(&"strength", 0.6)
+	_layer.set_param(&"strength", 5.0)
+	_layer.set_param(&"strength", 1.0)
+	assert_signal_emit_count(_layer, "param_changed", 2)
+
+
+func test_reset_all_emits_only_changed() -> void:
+	_layer.set_param(&"strength", 0.9)
+	_layer.set_param(&"invert", false)
+	watch_signals(_layer)
+	_layer.reset_all()
+	assert_signal_emit_count(_layer, "param_changed", 2)
+
+
+func test_null_shader_falls_back_to_passthrough() -> void:
+	_layer.shader = null
+	assert_null(_layer.get_layer_material().shader)
+	assert_eq(_layer.get_active_material(), _layer.get_passthrough_material())
+	assert_not_null(_layer.get_layer_material())

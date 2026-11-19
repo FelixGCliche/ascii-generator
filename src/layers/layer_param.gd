@@ -22,25 +22,72 @@ enum Type { FLOAT, INT, BOOL, COLOR, ENUM }
 
 
 ## Returns [param value] coerced to this param's type and constrained to its range.
+## A null value falls back to [member default_value], then to a type default (0.0, 0, false,
+## Color.WHITE, option 0). BOOL goes through bool(); COLOR accepts a Color or a valid HTML color
+## string, anything else falls back to the default (or Color.WHITE). FLOAT/INT are clamped to the
+## bounds (swapped if min_value > max_value), snapped to the step grid starting at min_value, and
+## never exceed max_value; an off-grid maximum steps down to the last grid value.
 func clamp_value(value: Variant) -> Variant:
+	if value == null:
+		value = default_value if default_value != null else _type_default()
+	var result: Variant = value
 	match type:
 		Type.FLOAT:
-			var f := clampf(float(value), min_value, max_value)
-			if step > 0.0:
-				f = clampf(min_value + snappedf(f - min_value, step), min_value, max_value)
-			return f
+			result = _clamp_float(float(value))
 		Type.INT:
-			var lo := ceili(min_value)
-			var hi := floori(max_value)
-			var i := clampi(int(value), lo, hi)
-			var int_step := int(step)
-			if int_step > 1:
-				i = clampi(lo + snappedi(i - lo, int_step), lo, hi)
-			return i
+			result = _clamp_int(int(value))
+		Type.BOOL:
+			result = bool(value)
+		Type.COLOR:
+			result = _to_color(value)
 		Type.ENUM:
-			return clampi(int(value), 0, maxi(options.size() - 1, 0))
-	return value
+			result = clampi(int(value), 0, maxi(options.size() - 1, 0))
+	return result
 
 
 func get_display_label() -> String:
 	return label if not label.is_empty() else String(name)
+
+
+func _type_default() -> Variant:
+	match type:
+		Type.FLOAT:
+			return 0.0
+		Type.BOOL:
+			return false
+		Type.COLOR:
+			return Color.WHITE
+	return 0
+
+
+func _clamp_float(value: float) -> float:
+	var lo := minf(min_value, max_value)
+	var hi := maxf(min_value, max_value)
+	var f := clampf(value, lo, hi)
+	if step > 0.0:
+		f = lo + snappedf(f - lo, step)
+		if f > hi:
+			f = lo + floorf((hi - lo) / step + 0.000001) * step
+		f = clampf(f, lo, hi)
+	return f
+
+
+func _clamp_int(value: int) -> int:
+	var lo := ceili(minf(min_value, max_value))
+	var hi := floori(maxf(min_value, max_value))
+	var i := clampi(value, lo, hi)
+	var int_step := int(step)
+	if int_step > 1:
+		i = lo + roundi(float(i - lo) / int_step) * int_step
+		if i > hi:
+			i = lo + ((hi - lo) / int_step) * int_step
+		i = clampi(i, lo, hi)
+	return i
+
+
+func _to_color(value: Variant) -> Color:
+	if value is Color:
+		return value
+	if (value is String or value is StringName) and String(value).is_valid_html_color():
+		return Color.html(String(value))
+	return default_value if default_value is Color else Color.WHITE
