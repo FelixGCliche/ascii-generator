@@ -1,0 +1,166 @@
+name: Build Web Export Template
+description: >-
+  Builds a slimmed Godot web export template (template_release) from source, using the
+  project-owned SCons args file, and installs it over the stock web template. Skips the
+  build (stock template is used) when the args file is missing or has no args.
+  Run after ./.github/actions/setup-godot.
+
+inputs:
+  godot-version:
+    description: Godot version to build (e.g. '4.7.2-stable'), as output by setup-godot.
+    required: true
+  config:
+    description: >-
+      Path to the SCons args file: one 'key=value' per line, '#' starts a comment.
+      Missing or empty file => no custom build.
+    default: tools/web-template/scons.args
+  threads:
+    description: Build with thread support. Must match the export preset's variant/thread_support.
+    default: "true"
+  emsdk-version:
+    description: >-
+      Emscripten version. Must match the version Godot's own CI uses for this Godot version
+      (EM_VERSION in .github/workflows/web_builds.yml at the Godot tag).
+    default: "4.0.11"
+
+outputs:
+  built:
+    description: "'true' if a custom template was installed, 'false' if the stock template is used."
+    value: ${{ steps.args.outputs.enabled }}
+
+runs:
+  using: composite
+  steps:
+    - name: Parse SCons args
+      id: args
+      shell: bash
+      env:
+        CONFIG: ${{ inputs.config }}
+        THREADS: ${{ inputs.threads }}
+        VERSION: ${{ inputs.godot-version }}
+        EMSDK_VERSION: ${{ inputs.emsdk-version }}
+        ACTION_FILE: ${{ github.action_path }}/action.yaml
+      run: |
+        set -euo pipefail
+        args=()
+        if [[ -f "${CONFIG}" ]]; then
+          while IFS= read -r line || [[ -n "${line}" ]]; do
+            line="${line%%#*}"                          # strip comments
+            line="${line//$'\r'/}"
+            line="${line#"${line%%[![:space:]]*}"}"     # trim leading whitespace
+            line="${line%"${line##*[![:space:]]}"}"     # trim trailing whitespace
+            [[ -z "${line}" ]] && continue
+            if [[ ! "${line}" =~ ^[A-Za-z0-9_]+=[A-Za-z0-9_./,+:-]+$ ]]; then
+              echo "::error file=${CONFIG}::Invalid SCons arg '${line}' (expected one key=value per line)"
+              exit 1
+            fi
+            case "${line%%=*}" in
+              platform|target|threads)
+                echo "::error file=${CONFIG}::'${line%%=*}' is set by the action, remove it from ${CONFIG}"
+                exit 1 ;;
+            esac
+            args+=("${line}")
+          done < "${CONFIG}"
+        fi
+
+        if [[ ${#args[@]} -eq 0 ]]; then
+          echo "No SCons args in '${CONFIG}', using the stock web export template."
+          echo "enabled=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # Mirror Godot's official web templates: threads => wasm64, no threads => wasm32,
+        # unless the args file sets arch itself.
+        if [[ "${THREADS}" == "true" ]]; then
+          args=("threads=yes" "${args[@]}"); arch=wasm64; name=web
+        else
+          args=("threads=no" "${args[@]}"); arch=wasm32; name=web_nothreads
+        fi
+        printf '%s\n' "${args[@]}" | grep -q '^arch=' || args+=("arch=${arch}")
+        if printf '%s\n' "${args[@]}" | grep -qE '^dlink_enabled=(yes|true|1)$'; then
+          name="web_dlink${name#web}"
+        fi
+
+        hash=$(cat "${CONFIG}" "${ACTION_FILE}" | sha256sum | cut -c1-16)
+        {
+          echo "enabled=true"
+          echo "scons-args=${args[*]}"
+          echo "template-name=${name}_release.zip"
+          echo "templates-dir=${HOME}/.local/share/godot/export_templates/${VERSION/-/.}"
+          echo "cache-dir=${RUNNER_TEMP}/godot-web-template"
+          echo "cache-key=godot-web-template-${VERSION}-emsdk${EMSDK_VERSION}-threads${THREADS}-${hash}"
+        } >> "$GITHUB_OUTPUT"
+        echo "SCons args: ${args[*]}"
+
+    - name: Restore cached template
+      id: cache
+      if: steps.args.outputs.enabled == 'true'
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.args.outputs.cache-dir }}
+        key: ${{ steps.args.outputs.cache-key }}
+
+    - name: Checkout Godot source
+      if: steps.args.outputs.enabled == 'true' && steps.cache.outputs.cache-hit != 'true'
+      uses: actions/checkout@v7
+      with:
+        repository: godotengine/godot
+        ref: ${{ inputs.godot-version }}
+        path: .godot-src
+        fetch-depth: 1
+
+    - name: Setup Emscripten
+      if: steps.args.outputs.enabled == 'true' && steps.cache.outputs.cache-hit != 'true'
+      uses: emscripten-core/setup-emsdk@v16
+      with:
+        version: ${{ inputs.emsdk-version }}
+        no-cache: true
+
+    - name: Setup Python
+      if: steps.args.outputs.enabled == 'true' && steps.cache.outputs.cache-hit != 'true'
+      uses: actions/setup-python@v7
+      with:
+        python-version: 3.x
+
+    - name: Build template
+      if: steps.args.outputs.enabled == 'true' && steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: .godot-src
+      env:
+        SCONS_ARGS: ${{ steps.args.outputs.scons-args }}
+        CACHE_DIR: ${{ steps.args.outputs.cache-dir }}
+      run: |
+        set -euo pipefail
+        python -m pip install scons==4.10.1   # version used by Godot's own CI (godot-deps action)
+        emcc -v
+        rm -rf editor                         # as Godot's CI does for template builds
+        read -ra args <<< "${SCONS_ARGS}"
+        scons platform=web target=template_release "${args[@]}"
+        ls -l bin/
+        shopt -s nullglob
+        zips=(bin/godot.web.template_release*.zip)
+        if [[ ${#zips[@]} -ne 1 ]]; then
+          echo "::error::Expected exactly one template zip in bin/, found ${#zips[@]}"
+          exit 1
+        fi
+        mkdir -p "${CACHE_DIR}"
+        cp "${zips[0]}" "${CACHE_DIR}/template.zip"
+
+    - name: Remove Godot source
+      if: always() && steps.args.outputs.enabled == 'true' && steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: rm -rf .godot-src   # keep it out of the project dir before export/import
+
+    - name: Install template
+      if: steps.args.outputs.enabled == 'true'
+      shell: bash
+      env:
+        CACHE_DIR: ${{ steps.args.outputs.cache-dir }}
+        TEMPLATES_DIR: ${{ steps.args.outputs.templates-dir }}
+        TEMPLATE_NAME: ${{ steps.args.outputs.template-name }}
+      run: |
+        set -euo pipefail
+        mkdir -p "${TEMPLATES_DIR}"
+        cp "${CACHE_DIR}/template.zip" "${TEMPLATES_DIR}/${TEMPLATE_NAME}"
+        unzip -l "${TEMPLATES_DIR}/${TEMPLATE_NAME}"
+        echo "Installed custom ${TEMPLATE_NAME} into ${TEMPLATES_DIR}"
