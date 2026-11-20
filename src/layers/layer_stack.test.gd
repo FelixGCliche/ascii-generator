@@ -161,3 +161,31 @@ func test_removed_layer_no_longer_propagates() -> void:
 	a.request_update()
 	assert_eq(b.render_target_update_mode, SubViewport.UPDATE_DISABLED)
 	b.free()
+
+
+func test_layers_changed_signal() -> void:
+	watch_signals(_stack)
+	var a := Layer.new()
+	var b := Layer.new()
+	_stack.add_layer(a)
+	_stack.add_layer(b)
+	assert_signal_emit_count(_stack, "layers_changed", 2)
+	_stack.move_layer(a, 1)
+	assert_signal_emit_count(_stack, "layers_changed", 3)
+	_stack.remove_layer(b)
+	assert_signal_emit_count(_stack, "layers_changed", 4)
+	_stack.source_texture = _source()
+	assert_signal_emit_count(_stack, "layers_changed", 4)
+	b.free()
+
+
+func test_solo_changed_signal() -> void:
+	var a := Layer.new()
+	_stack.add_layer(a)
+	watch_signals(_stack)
+	_stack.set_solo(a)
+	assert_signal_emit_count(_stack, "solo_changed", 1)
+	_stack.set_solo(a)
+	assert_signal_emit_count(_stack, "solo_changed", 1)
+	_stack.clear_solo()
+	assert_signal_emit_count(_stack, "solo_changed", 2)

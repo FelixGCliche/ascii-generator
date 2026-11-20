@@ -12,6 +12,10 @@ extends Node
 
 ## Emitted whenever the texture returned by [method get_final_texture] changes.
 signal final_texture_changed(texture: Texture2D)
+## Emitted when layers were added, removed, reordered or dropped (freed/reparented).
+signal layers_changed
+## Emitted when the solo layer changed (null when the solo was cleared).
+signal solo_changed(layer: Layer)
 ## Emitted after queued downstream updates were requested (see [method _flush_pending]).
 signal updates_flushed(layers: Array[Layer])
 
@@ -53,6 +57,7 @@ func add_layer(layer: Layer, index := -1) -> void:
 		add_child(layer)
 	layer.tree_exiting.connect(_on_layer_tree_exiting.bind(layer))
 	_rechain()
+	layers_changed.emit()
 
 
 ## Removes [param layer] from the stack without freeing it.
@@ -64,6 +69,7 @@ func remove_layer(layer: Layer) -> void:
 		remove_child(layer)
 	layer.input_tex = null
 	_rechain()
+	layers_changed.emit()
 
 
 ## Moves [param layer] to [param index] (clamped to the valid range).
@@ -73,6 +79,7 @@ func move_layer(layer: Layer, index: int) -> void:
 	_layers.erase(layer)
 	_layers.insert(clampi(index, 0, _layers.size()), layer)
 	_rechain()
+	layers_changed.emit()
 
 
 func get_layers() -> Array[Layer]:
@@ -97,11 +104,14 @@ func set_solo(layer: Layer) -> void:
 	if layer and not _layers.has(layer):
 		return
 	var old_boundary := _active_boundary()
+	var solo_before: Variant = _solo
 	_solo = layer
 	for i in range(old_boundary + 1, _active_boundary() + 1):
 		_layers[i].refresh_size()
 		_queue(_layers[i])
 	_emit_final_if_changed()
+	if solo_before != _solo:
+		solo_changed.emit(layer)
 
 
 func get_solo() -> Layer:
@@ -182,6 +192,7 @@ func _forget(layer: Layer) -> void:
 	_pending.erase(layer)
 	if _solo == layer:
 		_solo = null
+		solo_changed.emit(null)
 	if layer.tree_exiting.is_connected(_on_layer_tree_exiting.bind(layer)):
 		layer.tree_exiting.disconnect(_on_layer_tree_exiting.bind(layer))
 
@@ -203,6 +214,7 @@ func _reconcile() -> void:
 	if dirty:
 		_pending.clear()
 		_rechain()
+		layers_changed.emit()
 
 
 func _unwire() -> void:
