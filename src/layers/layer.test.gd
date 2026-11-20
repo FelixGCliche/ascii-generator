@@ -176,7 +176,7 @@ func test_refresh_size_and_changed_signal() -> void:
 	_layer.refresh_size()
 	assert_eq(_layer.size, Vector2i(20, 30))
 	_layer.input_tex = null
-	assert_false(tex.changed.is_connected(_layer.refresh_size))
+	assert_eq(tex.changed.get_connections().size(), 0)
 
 
 func test_updates_once_and_retriggers() -> void:
@@ -187,7 +187,7 @@ func test_updates_once_and_retriggers() -> void:
 		"shader": func() -> void: _layer.shader = null,
 		"input": func() -> void: _layer.input_tex = SizedTexture.new(),
 		"params": func() -> void: _layer.params = [],
-		"refresh": func() -> void: _layer.refresh_size(),
+		"sync": func() -> void: _layer.sync_params(),
 		"request": func() -> void: _layer.request_update(),
 	}
 	for key in triggers:
@@ -226,6 +226,14 @@ func test_reset_all_emits_only_changed() -> void:
 func test_null_shader_falls_back_to_passthrough() -> void:
 	_layer.shader = null
 	assert_eq(_layer.get_layer_material().shader, Layer.PASSTHROUGH_SHADER)
+
+
+func test_request_update_emits_output_changed() -> void:
+	watch_signals(_layer)
+	_layer.request_update()
+	assert_signal_emit_count(_layer, "output_changed", 1)
+	_layer.set_param(&"strength", 0.9)
+	assert_signal_emit_count(_layer, "output_changed", 2)
 
 
 func test_scene_assigned_params_apply_without_ready() -> void:

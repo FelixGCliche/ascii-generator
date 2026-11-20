@@ -103,3 +103,71 @@ func test_int_rounds_floats() -> void:
 	assert_eq(param.clamp_value(2.6), 3)
 	assert_eq(param.clamp_value(2.4), 2)
 	assert_eq(param.clamp_value(-0.6), 0)
+
+
+func test_float_int_reject_wrong_types() -> void:
+	var param := _make(LayerParam.Type.FLOAT, 0.0, 10.0)
+	param.default_value = 4.0
+	for bad: Variant in [Color.RED, Vector2.ONE, "3.0", true, [1]]:
+		assert_almost_eq(param.clamp_value(bad), 4.0, 0.0001)
+	assert_almost_eq(param.clamp_value(3), 3.0, 0.0001)
+	var int_param := _make(LayerParam.Type.INT, 0.0, 10.0)
+	assert_eq(int_param.clamp_value("7"), 0)
+	int_param.default_value = 5
+	assert_eq(int_param.clamp_value(Vector2.ONE), 5)
+	assert_eq(int_param.clamp_value(8.6), 9)
+
+
+func test_invalid_default_falls_back_to_type_default() -> void:
+	var param := _make(LayerParam.Type.FLOAT, 0.0, 10.0)
+	param.default_value = "oops"
+	assert_almost_eq(param.clamp_value(Color.RED), 0.0, 0.0001)
+
+
+func test_bool_accepts_numbers_and_strings() -> void:
+	var param := _make(LayerParam.Type.BOOL)
+	assert_eq(param.clamp_value(true), true)
+	assert_eq(param.clamp_value(0), false)
+	assert_eq(param.clamp_value(2), true)
+	assert_eq(param.clamp_value(0.0), false)
+	assert_eq(param.clamp_value("TRUE"), true)
+	assert_eq(param.clamp_value("False"), false)
+	param.default_value = true
+	assert_eq(param.clamp_value("maybe"), true)
+	assert_eq(param.clamp_value(Color.RED), true)
+	param.default_value = false
+	assert_eq(param.clamp_value(Vector2.ONE), false)
+
+
+func test_color_invalid_falls_back() -> void:
+	var param := _make(LayerParam.Type.COLOR)
+	param.default_value = Color.GREEN
+	assert_eq(param.clamp_value("not a color"), Color.GREEN)
+	assert_eq(param.clamp_value(5), Color.GREEN)
+	assert_eq(param.clamp_value("#ff0000"), Color.RED)
+	assert_eq(param.clamp_value(Color.BLUE), Color.BLUE)
+
+
+func test_enum_rejects_wrong_types() -> void:
+	var param := _make(LayerParam.Type.ENUM)
+	param.options = PackedStringArray(["a", "b", "c"])
+	param.default_value = 1
+	assert_eq(param.clamp_value("b"), 1)
+	assert_eq(param.clamp_value(2.0), 2)
+
+
+func test_int_fractional_step_rounds_to_whole() -> void:
+	var param := _make(LayerParam.Type.INT, 0.0, 10.0, 0.4)
+	assert_eq(param.clamp_value(7), 7)
+	param.step = 2.6
+	assert_eq(param.clamp_value(4), 3)
+	assert_eq(param.clamp_value(10), 9)
+	param.step = 0.0
+	assert_eq(param.clamp_value(7), 7)
+
+
+func test_int_step_never_exceeds_max() -> void:
+	var param := _make(LayerParam.Type.INT, 1.0, 10.0, 4.0)
+	assert_eq(param.clamp_value(10), 9)
+	assert_eq(param.clamp_value(8), 9)
+	assert_eq(param.clamp_value(6), 5)
