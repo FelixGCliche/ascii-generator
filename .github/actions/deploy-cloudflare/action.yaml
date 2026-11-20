@@ -1,0 +1,68 @@
+name: Deploy to Cloudflare Pages
+description: Brotli-compress index.wasm (served with Content-Encoding via deploy/_headers), check file sizes, and deploy with wrangler.
+
+inputs:
+  branch:
+    description: Pages branch. `main` is production; anything else is a preview.
+    required: true
+  api-token:
+    required: true
+  account-id:
+    required: true
+  project:
+    description: Cloudflare Pages project name.
+    default: ascii-generator
+  directory:
+    description: Export directory (holds index.html, index.wasm, ...).
+    default: build-html5
+
+outputs:
+  url:
+    description: URL of this deployment.
+    value: ${{ steps.deploy.outputs.url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Mise
+      uses: jdx/mise-action@v4
+      with:
+        install: true
+        cache: true
+    - name: Compress wasm
+      shell: bash
+      env:
+        DIR: ${{ inputs.directory }}
+      run: |
+        set -euo pipefail
+        sudo apt-get install -y brotli
+        # Keep the name index.wasm: deploy/_headers marks it Content-Encoding: br.
+        brotli -q 11 -f -o "$DIR/index.wasm.br" "$DIR/index.wasm"
+        mv "$DIR/index.wasm.br" "$DIR/index.wasm"
+        cp deploy/_headers "$DIR/_headers"
+    - name: Check file sizes
+      shell: bash
+      env:
+        DIR: ${{ inputs.directory }}
+        MAX_FILE_SIZE_MIB: 25   # Cloudflare Pages per-file limit
+      run: |
+        big=$(find "$DIR" -type f -size +$((MAX_FILE_SIZE_MIB * 1024 * 1024))c -exec ls -l {} +)
+        if [ -n "$big" ]; then
+          echo "::error::Files larger than ${MAX_FILE_SIZE_MIB} MiB (Cloudflare Pages limit):"
+          echo "$big"
+          exit 1
+        fi
+    - name: Deploy
+      id: deploy
+      shell: bash
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ inputs.api-token }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.account-id }}
+        DIR: ${{ inputs.directory }}
+        PROJECT: ${{ inputs.project }}
+        BRANCH: ${{ inputs.branch }}
+      run: |
+        set -euo pipefail
+        wrangler pages deploy "$DIR" --project-name "$PROJECT" --branch "$BRANCH" --commit-hash "$GITHUB_SHA" | tee deploy.log
+        url=$(grep -oE 'https://[a-z0-9.-]+\.pages\.dev' deploy.log | head -n 1)
+        echo "url=${url}" >> "$GITHUB_OUTPUT"

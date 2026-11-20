@@ -23,9 +23,11 @@ runs:
         echo "templates-dir=${HOME}/.local/share/godot/export_templates/${VERSION/-/.}" >> "$GITHUB_OUTPUT"
         echo "Using Godot ${VERSION}"
 
-    - name: Cache export templates
+    # Restore/save split: save right after install, so templates overwritten later in the
+    # job (e.g. by build-web-template) never end up in this cache.
+    - name: Restore export templates
       id: cache-templates
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: ${{ steps.version.outputs.templates-dir }}
         key: godot-export-templates-${{ steps.version.outputs.version }}
@@ -43,6 +45,13 @@ runs:
         mkdir -p "${TEMPLATES_DIR}"
         mv "${TMP}"/templates/* "${TEMPLATES_DIR}/"
         rm -rf "${TMP}"
+
+    - name: Save export templates
+      if: steps.cache-templates.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.version.outputs.templates-dir }}
+        key: godot-export-templates-${{ steps.version.outputs.version }}
 
     - name: Run gd-plug
       shell: bash

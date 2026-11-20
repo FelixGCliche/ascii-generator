@@ -7,9 +7,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  packages: read
-  id-token: write
 
 jobs:
   lint:
@@ -26,14 +23,11 @@ jobs:
         with:
           install: true
           cache: true
-      
-      - parallel:
-          - name: Run GdLint
-            run: gdlint ./
-          
-          - name: Run GdFormat
-            run: gdformat ./ -s 2 -d
-            continue-on-error: true
+      - name: Run GdLint
+        run: gdlint ./
+      - name: Run GdFormat
+        run: gdformat ./ -s 2 -d
+        continue-on-error: true
 
   test:
     name: Test
@@ -67,6 +61,7 @@ jobs:
           fetch-depth: 0
           lfs: true
       - name: Setup Godot
+        id: godot
         uses: ./.github/actions/setup-godot
       - name: Export Godot project
         run: |
@@ -80,24 +75,42 @@ jobs:
           retention-days: 1
  
   deploy:
-    name: Deploy on Github Pages
+    name: Deploy preview on Cloudflare Pages
     needs: export
+    if: github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
     permissions:
-      pages: write
-      packages: read
-      id-token: write
-    steps: 
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
       - name: Download export artifacts
         uses: actions/download-artifact@v7
-        with: 
-          name: build-html5
-      - name: Setup Pages
-        uses: actions/configure-pages@v6
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v5
         with:
-          path: '.'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+          name: build-html5
+          path: build-html5
+      - name: Deploy preview
+        id: preview
+        uses: ./.github/actions/deploy-cloudflare
+        with:
+          branch: ${{ github.head_ref }}
+          api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Comment preview URL on PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          URL: ${{ steps.preview.outputs.url }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          marker='<!-- preview-deployment -->'
+          printf '%s\n**Preview deployment:** %s\n\nCommit: `%s`\n' "$marker" "$URL" "${SHA:0:7}" > comment.md
+          id=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" --paginate \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"${marker}\"))) | .id" | head -n 1)
+          if [ -n "$id" ]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${id}" -F body=@comment.md
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" -F body=@comment.md
+          fi

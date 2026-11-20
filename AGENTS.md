@@ -16,11 +16,13 @@ adjusted without touching the others.
 
 - **Engine:** Godot 4.7 (GDScript). The version is pinned in `mise.toml`, which is the
   single source of truth: local dev and CI both resolve Godot from it.
-- **Primary target:** Web (HTML5 export, deployed to GitHub Pages). A Windows desktop
-  export (`win64`) is also built.
-- **Tooling:** [mise](https://mise.jdx.dev) manages every tool: Godot, lefthook, and
+- **Primary target:** Web (HTML5 export, deployed to Cloudflare Pages: previews on PRs to
+  `main`; production is built by Cloudflare on push to `main`). A Windows desktop export
+  (`win64`) is also built.
+- **Tooling:** [mise](https://mise.jdx.dev) manages every tool: Godot, lefthook,
   [gdtoolkit](https://github.com/Scony/godot-gdscript-toolkit) (`gdlint`, `gdformat`),
-  which mise installs with uv. Git hooks run through lefthook pre-commit.
+  which mise installs with uv, and `wrangler` (Cloudflare CLI, via node). Git hooks run
+  through lefthook pre-commit.
 
 ## Structure
 
@@ -29,11 +31,15 @@ adjusted without touching the others.
 - `plug.gd` + `addons/gd-plug/`: plugin manager (gd-plug); other plugins (e.g. GUT) are installed by it and git-ignored.
 - `*.test.gd` files in `src/`, next to the code they test: GUT tests. `.gutconfig.json` holds the GUT settings.
 - `.github/actions/setup-godot`: installs Godot through mise, plus the matching export templates.
-- `.github/workflows/build-deploy.yaml`: on PRs to `main`, runs lint → test (GUT) → export → deploy to Pages.
+- `.github/workflows/build-deploy.yaml`: on PRs to `main`, runs lint → test (GUT) → export → deploy a Cloudflare Pages preview.
+- `.github/workflows/deploy-prod.yaml`: on push to `main`, exports and deploys production to Cloudflare Pages.
+- `.github/actions/deploy-cloudflare`: brotli-compresses `index.wasm` in place (the raw file exceeds Cloudflare's
+  25 MiB limit), then runs `wrangler pages deploy`. `deploy/_headers` marks `/index.wasm` as `Content-Encoding: br`;
+  config in `wrangler.jsonc`. Needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets.
 
 ## Tooling
 
-- Install tools: `mise install` (Godot, lefthook, uv, gdtoolkit)
+- Install tools: `mise install` (Godot, lefthook, uv, gdtoolkit, node, wrangler)
 - Install git hooks: `lefthook install`
 - Lint: `gdlint ./` (rules in `.gdlintrc`)
 - Format: `gdformat ./` (check only: `gdformat ./ -d`)
