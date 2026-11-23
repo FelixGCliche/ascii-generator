@@ -7,7 +7,7 @@ const SHADER := preload("res://src/shaders/source_adjust.gdshader")
 
 func _init() -> void:
 	super()
-	name = &"SourceAdjust"
+	name = &"Source Adjust"
 	shader = SHADER
 	params = [
 		_float_param(&"exposure", "Exposure", -3.0, 3.0, 0.0),
