@@ -1,12 +1,12 @@
 [gd_scene format=3 uid="uid://b7vagdl4ld5sx"]
 
-[ext_resource type="Script" path="res://src/layers/layer_stack.gd" id="1_stack"]
-[ext_resource type="Script" path="res://src/scenes/main.gd" id="2_main"]
-[ext_resource type="Script" path="res://src/io/image_loader.gd" id="3_loader"]
-[ext_resource type="Script" path="res://src/ui/layer_panel.gd" id="4_panel"]
-[ext_resource type="Script" path="res://src/io/preset_io.gd" id="5_preset"]
+[ext_resource type="Script" uid="uid://downs2yrwunrl" path="res://src/layers/layer_stack.gd" id="1_stack"]
+[ext_resource type="Script" uid="uid://cqt3bntq5dq74" path="res://src/scenes/main.gd" id="2_main"]
+[ext_resource type="Script" uid="uid://dhxaeb25t6p58" path="res://src/io/image_loader.gd" id="3_loader"]
+[ext_resource type="Script" uid="uid://f3i3c4t31hu8" path="res://src/ui/layer_panel.gd" id="4_panel"]
+[ext_resource type="Script" uid="uid://bx46c8bpvhg55" path="res://src/io/preset_io.gd" id="5_preset"]
 
-[node name="Control" type="Control"]
+[node name="Control" type="Control" unique_id=479657640]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -15,16 +15,16 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("2_main")
 
-[node name="LayerStack" type="Node" parent="."]
+[node name="LayerStack" type="Node" parent="." unique_id=766011727]
 script = ExtResource("1_stack")
 
-[node name="ImageLoader" type="Node" parent="."]
+[node name="ImageLoader" type="Node" parent="." unique_id=353492367]
 script = ExtResource("3_loader")
 
-[node name="PresetIO" type="Node" parent="."]
+[node name="PresetIO" type="Node" parent="." unique_id=1538156550]
 script = ExtResource("5_preset")
 
-[node name="Layout" type="HBoxContainer" parent="."]
+[node name="Layout" type="HBoxContainer" parent="." unique_id=697921265]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -32,41 +32,41 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Sidebar" type="VBoxContainer" parent="Layout"]
+[node name="Sidebar" type="VBoxContainer" parent="Layout" unique_id=838954484]
 custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 
-[node name="Top" type="HBoxContainer" parent="Layout/Sidebar"]
+[node name="Top" type="HBoxContainer" parent="Layout/Sidebar" unique_id=2124933837]
 layout_mode = 2
 
-[node name="OpenButton" type="Button" parent="Layout/Sidebar/Top"]
+[node name="OpenButton" type="Button" parent="Layout/Sidebar/Top" unique_id=1229705967]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Open image"
 
-[node name="SaveButton" type="Button" parent="Layout/Sidebar/Top"]
+[node name="SaveButton" type="Button" parent="Layout/Sidebar/Top" unique_id=675146298]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Save preset"
 
-[node name="LoadButton" type="Button" parent="Layout/Sidebar/Top"]
+[node name="LoadButton" type="Button" parent="Layout/Sidebar/Top" unique_id=2045324154]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Load preset"
 
-[node name="StatusLabel" type="Label" parent="Layout/Sidebar/Top"]
+[node name="StatusLabel" type="Label" parent="Layout/Sidebar/Top" unique_id=431527291]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 autowrap_mode = 3
 
-[node name="LayerPanel" type="ScrollContainer" parent="Layout/Sidebar"]
+[node name="LayerPanel" type="ScrollContainer" parent="Layout/Sidebar" unique_id=2035153719]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 script = ExtResource("4_panel")
 
-[node name="Preview" type="TextureRect" parent="Layout"]
+[node name="Preview" type="TextureRect" parent="Layout" unique_id=196168010]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3

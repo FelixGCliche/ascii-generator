@@ -18,6 +18,7 @@ func _ready() -> void:
 	%SaveButton.pressed.connect(_presets.save.bind(_stack))
 	%LoadButton.pressed.connect(_presets.open_picker.bind(_stack))
 	%OpenButton.pressed.connect(_on_open_pressed)
+	_stack.add_layer(SourceAdjustLayer.new())
 	_panel.stack = _stack
 	_preview.texture = _stack.get_final_texture()
 
