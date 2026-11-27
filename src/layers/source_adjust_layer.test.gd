@@ -14,7 +14,7 @@ func before_each() -> void:
 
 
 func test_layer_name_and_shader() -> void:
-	assert_eq(_layer.name, &"SourceAdjust")
+	assert_eq(_layer.name, &"Source Adjust")
 	assert_not_null(_layer.shader)
 
 
