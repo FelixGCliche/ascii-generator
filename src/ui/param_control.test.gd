@@ -105,3 +105,70 @@ func test_programmatic_set_does_not_emit() -> void:
 	assert_eq(_calls, [])
 	(ParamControl.get_input(row) as HSlider).value = 0.25
 	assert_eq(_calls.size(), 1)
+
+
+func _spin(row: Control) -> SpinBox:
+	for child in row.get_children():
+		if child is SpinBox:
+			return child
+	return null
+
+
+func _ranged_param(type: LayerParam.Type, default: Variant) -> LayerParam:
+	var p := _param(type, default)
+	p.min_value = -2.0
+	p.max_value = 4.0
+	p.step = 0.5
+	return p
+
+
+func test_spinbox_matches_slider_range_and_step() -> void:
+	var row := _build(_ranged_param(LayerParam.Type.FLOAT, 0.5), 0.5)
+	var slider := ParamControl.get_input(row) as HSlider
+	var spin := _spin(row)
+	assert_not_null(spin)
+	assert_eq(spin.min_value, slider.min_value)
+	assert_eq(spin.max_value, slider.max_value)
+	assert_eq(spin.step, slider.step)
+	assert_eq(spin.value, 0.5)
+	assert_true(spin.editable)
+	var int_param := _param(LayerParam.Type.INT, 3)
+	int_param.max_value = 10.0
+	var int_row := _build(int_param, 3)
+	assert_eq(_spin(int_row).step, 1.0)
+	assert_eq(_spin(int_row).value, 3.0)
+
+
+func test_set_value_updates_slider_and_spinbox_silently() -> void:
+	var p := _ranged_param(LayerParam.Type.FLOAT, 0.0)
+	var row := _build(p, 0.0)
+	ParamControl.set_value(row, p, 1.5)
+	assert_eq((ParamControl.get_input(row) as HSlider).value, 1.5)
+	assert_eq(_spin(row).value, 1.5)
+	assert_eq(_calls, [])
+
+
+func test_spinbox_edit_emits_once_and_moves_slider() -> void:
+	var row := _build(_ranged_param(LayerParam.Type.FLOAT, 0.0), 0.0)
+	_spin(row).value = 2.5
+	assert_eq(_calls, [[&"amount", 2.5]])
+	assert_eq((ParamControl.get_input(row) as HSlider).value, 2.5)
+
+
+func test_slider_edit_updates_spinbox() -> void:
+	var row := _build(_ranged_param(LayerParam.Type.FLOAT, 0.0), 0.0)
+	(ParamControl.get_input(row) as HSlider).value = -1.0
+	assert_eq(_spin(row).value, -1.0)
+	assert_eq(_calls, [[&"amount", -1.0]])
+
+
+func test_out_of_range_edit_clamps() -> void:
+	var row := _build(_ranged_param(LayerParam.Type.FLOAT, 0.0), 0.0)
+	_spin(row).value_changed.emit(10.0)
+	assert_eq(_calls, [[&"amount", 4.0]])
+	assert_eq(_spin(row).value, 4.0)
+	assert_eq((ParamControl.get_input(row) as HSlider).value, 4.0)
+	var p := _ranged_param(LayerParam.Type.FLOAT, 0.0)
+	var other := _build(p, 0.0)
+	ParamControl.set_value(other, p, -9.0)
+	assert_eq(_spin(other).value, -2.0)
